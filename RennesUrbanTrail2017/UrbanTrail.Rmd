@@ -1,0 +1,296 @@
+---
+title: "Rennes Urban Trail 2017"
+params:
+  publish: TRUE
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r Setup, echo = F}
+source("../DataBzhTools/main.R")
+load(file = "data/UrbanTrail.RData")
+
+sec2Date <- function(seconds)
+{
+  s <- seconds %% 60
+  minutes <- (seconds - s) / 60
+  m <- minutes %% 60
+  h <- floor(minutes / 60)
+
+  return(sprintf("%dh%02d", h, m))
+}
+```
+
+Le dimanche **2 avril 2017** s'est déroulé le premier [Urban Trail de Rennes](http://www.rennesurbantrail.bzh).
+
+L'évènement regroupait les adeptes de la course à pied autour de **3 épreuves** de **[7 km](http://www.rennesurbantrail.bzh/7-km.php)**, **[14 km](http://www.rennesurbantrail.bzh/14-km.php)** et **[24 km](http://www.rennesurbantrail.bzh/24-km.php)**, sur des circuits alternants zones "roulantes" et passages plus techniques (montées/descentes d'escaliers, parcours en zone nature, etc.)
+
+Dans ce billet, nous allons nous intéresser aux résultats des différentes épreuves.
+
+## Données
+
+Le résultat des courses est disponible sur le site [Klikego](https://www.klikego.com/resultats/rennes-urban-trail-2017/1477428861475-1).
+
+Ceux-ci n'étant pas téléchargeables dans un format exploitable automatiquement, les données ont été récupérées à l'aide d'un outil prévu à cet effet : **[KlikegoScraper](https://github.com/michelcaradec/KlikegoScraper)**.
+
+## Analyse exploratoire
+
+**`r prettyNum(nrow(trail), big.mark = " ")`** participants (**`r prettyNum(nrow(trail[trail$Sexe == "M",]), big.mark = " ")`** hommes et **`r prettyNum(nrow(trail[trail$Sexe == "F",]), big.mark = " ")`** femmes) ont franchi la ligne d'arrivée (les "finishers").
+
+Regardons le détail par **épreuve**.
+
+```{r race.count, echo = F}
+tbl <- as.data.frame(table(trail$Course))
+names(tbl) <- c("race", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(race, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 8, colour = "grey50") +
+    xlab("Epreuve") +
+    ylab("Nombre") +
+    ggtitle("Urban Trail Rennes 2017 - Nombre de finishers par épreuve") +
+    databzhTheme()
+))
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/01-race-count.png")
+}
+```
+
+C'est le **14 km** qui a réuni le plus de participants. Le **24 km** n'est pas en reste, preuve que la course à pied est un sport populaire (le succès des éditions de [Tout Rennes court](http://www.toutrennescourt.fr) ne contrediront pas ce point).
+
+Poursuivons notre analyse avec la répartition par **sexe**.
+
+```{r race.sex.count, echo = F}
+tbl <- aggregate(Classement ~ Course + Sexe, trail, length)
+names(tbl) <- c("race", "sex", "count")
+
+cols <- c("F" = "red", "M" = "blue")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(race, count, fill = sex)) +
+    geom_bar(stat = "identity", alpha = .25, position = "dodge") +
+    geom_text(aes(label = prettyNum(count, " ")), size = 8, colour = "grey50", position = position_dodge(width = 0.9)) +
+    xlab("Epreuve") +
+    ylab("Nombre") +
+    scale_fill_manual("", values = cols) +
+    ggtitle("Urban Trail Rennes 2017 - Nombre de finishers par sexe") +
+    databzhTheme(),
+  xpos = "left"
+))
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/02-race-sex-count.png")
+}
+```
+
+Les **femmes** sont plus représentées sur le **7 km**, mais leur proportion diminue avec l'augmentation de la distance. La tendance est inverse chez les **hommes**.
+
+Regardons maintenant la répartition par **catégorie**.
+
+```{r race.cat.count, echo = F}
+tbl <- aggregate(Classement ~ Course + Categorie, trail, length)
+names(tbl) <- c("race", "category", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(category, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 5, colour = "grey50") +
+    xlab("Catégorie") +
+    ylab("Nombre") +
+    ggtitle("Urban Trail Rennes 2017 - Nombre de finishers par catégorie") +
+    databzhTheme()
+  ) +
+  facet_grid(race ~ .)
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/03-race-cat-count.png")
+}
+```
+
+Chaque catégorie représente une tranche d'âge, avec un découpage détaillé sur le tableau suivant.
+
+| Catégorie | Sigle | Age |
+|---|---|---|
+| Cadet | CA | de 16 à 17 ans |
+| Junior | JU | de 18 à 19 ans |
+| Espoir | ES | de 20 à 22 ans |
+| Senior | SE | de 23 à 39 ans |
+| Vétéran 1 | V1 | de 40 à 49 ans (35 ans au niveau international) |
+| Vétéran 2 | V2 | de 50 à 59 ans |
+| Vétéran 3 | V3 | à partir de 60 ans |
+| Vétéran 4 | V4 | à partir de 70 ans (messieurs uniquement) |
+
+*Source [Wikipedia](https://fr.wikipedia.org/wiki/Catégorie_(sports)#Cat.C3.A9gories_en_athl.C3.A9tisme)*.
+
+Les **Seniors** et **Vétérans 1** (aussi appelés Master 1) sont ceux qui ont le plus répondus présent.
+
+Intéressons nous maintenant à l'**âge**.
+
+Les concurrents les plus jeunes ont **`r min(trail$Age)` ans** (au nombre de **`r nrow(trail[trail$Age == min(trail$Age),])`**), les plus anciens **`r max(trail$Age)` ans** (au nombre de **`r nrow(trail[trail$Age == max(trail$Age),])`**).
+
+Observons la distribution de l'âge pour les 3 épreuves.
+
+```{r race.age.count, echo = F}
+tbl <- aggregate(Classement ~ Course + Age, trail, length)
+names(tbl) <- c("race", "age", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(age, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 4, colour = "grey50") +
+    scale_x_continuous(breaks = seq(min(trail$Age), max(trail$Age), by = 5) - 1) +
+    xlab("Age") +
+    ylab("Nombre") +
+    ggtitle("Urban Trail Rennes 2017 - Nombre de finishers par âge") +
+    databzhTheme()
+  ) +
+  facet_grid(race ~ .)
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/04-race-age-count.png")
+}
+```
+
+Dans tous les cas, la distribution suit approximativement une **[loi normale](https://fr.wikipedia.org/wiki/Loi_normale)**. Autrement dit, le nombre de concurrents est le plus important aux alentours de la moyenne d'âge, et diminue en allant vers les extrémités.
+
+Voici quelques éléments statistiques complémentaires.
+
+```{r race.Summary, echo = F}
+trail.summary <-
+  t(
+    simplify2array(
+      lapply(
+        levels(trail$Course),
+        function(x) summary(trail[trail$Course == x,]$TempsSec)
+      )
+    )
+  )
+trail.summary <- as.data.frame(matrix(mapply(sec2Date, trail.summary), 3, 6))
+trail.summary$Course <- levels(trail$Course)
+names(trail.summary) <- c("Temps Min.", "q1", "Temps Median", "Temps Moyen", "q3", "Temps Max.", "Course")
+
+(tbl <- trail.summary[, c(7, 1, 6, 4, 3)])
+
+if (params$publish) {
+  writeLines(
+    commonmark::markdown_html(
+      as.character(
+        knitr::kable(tbl)
+      ),
+      extensions = "table"
+    ),
+    "publish/05-race-summary.html"
+  )
+}
+```
+
+Regardons maintenant à l'aide d'[histogrammes](https://fr.wikipedia.org/wiki/Histogramme) la distribution du temps nécessaire à l'accomplissement de chaque épreuve.
+
+```{r race.hist, echo = F}
+temps.breaks <- seq(1500, 12400, by = 300)
+
+(ggp <- databzhPlot(
+  ggplot(data = trail, aes(TempsSec)) +
+    geom_histogram(binwidth = 100, fill = databzh$colour) +
+    scale_x_continuous(breaks = temps.breaks, labels = sec2Date) +
+    xlab("Temps") +
+    ylab("Quantité") +
+    ggtitle("Urban Trail Rennes 2017 - Distribution du temps par épreuve") +
+    databzhTheme()
+  ) +
+  facet_grid(Course ~ .) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/06-race-hist.png")
+}
+```
+
+Visualisation la même information sous forme de [boîtes à moustache](https://fr.wikipedia.org/wiki/Boîte_à_moustaches).
+
+```{r race.boxplot, echo = F}
+(ggp <- databzhPlot(
+  ggplot(data = trail, aes(Course, TempsSec)) +
+    geom_boxplot(fill = databzh$colour) +
+    scale_y_continuous(breaks = temps.breaks, labels = sec2Date) +
+    xlab("Epreuve") +
+    ylab("Temps") +
+    ggtitle("Urban Trail Rennes 2017 - Distribution du temps par épreuve") +
+    databzhTheme()
+  )
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/07-race-boxplot.png")
+}
+```
+
+Nous avons étudié séparément l'**âge** et le **temps**, mais existe-t-il un lien entre ces 2 éléments ? Nous pourrions être tentés de penser que les performances sont plus grandes pour les concurrents plus jeunes, et diminuent avec l'âge, mais qu'en est-il vraiment ?
+
+Jusqu'à maintenant, nous avons utilisé la **vitesse moyenne**, qui est le nombre de kilomètres que l’on peut parcourir en une heure.
+
+Nous allons ici nous référer à l'**allure moyenne**, qui est le nombre de minutes que l'on met pour parcourir un kilomètre (par exemple, une allure de 5 minutes signifie que l'on court à une vitesse de 12 km/h : en effet, il y a 12 segments de 5 minutes dans une heure). Ainsi, plus le nombre de minutes est bas, plus l'on court vite. Cette mesure est généralement privilégiée chez les coureurs, car plus simple à appréhender.
+
+*Le calcul de l'allure moyenne a été effectué en divisant le temps de course par la distance*.
+
+```{r race.age.pace, echo = F}
+plotAgePace <- function(sex, subtitle) {
+  tbl <- trail[trail$Sexe == sex,]
+  
+  ggp <- databzhPlot(
+  ggplot(data = tbl, aes(Age, Allure)) +
+    geom_point(colour = databzh$colour, alpha = .2, size = 3) +
+    geom_smooth(method = "lm") +
+    scale_x_continuous(breaks = seq(min(trail$Age), max(trail$Age), by = 5) - 1) +
+    scale_y_continuous(breaks = seq(floor(min(tbl$Allure)), ceiling(max(tbl$Allure)), by = 1)) +
+    xlab("Age") +
+    ylab("Allure (minutes)") +
+    ggtitle("Urban Trail Rennes 2017 - Allure moyenne en fonction de l'âge", subtitle = paste0("(", subtitle, ")")) +
+    databzhTheme()
+  ) +
+  facet_grid(Course ~ .) +
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 15))
+  
+  return(ggp)
+}
+```
+
+```{r race.age.pace.m, echo = F}
+(ggp <- plotAgePace("M", "Hommes"))
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/08-age-pace.m.png")
+}
+```
+
+- La **ligne bleue** indique la tendance générale de l'allure par rapport à l'âge, et est calculée avec un modèle de **[régression linéaire](https://fr.wikipedia.org/wiki/Régression_linéaire)**.
+- La **zone grise** indique l'intervalle de confiance.
+- Plus les **points rouges** sont sombres, plus la densité des coureurs pour un âge et une allure donnée est grande.
+
+Chez les **hommes**, on observe une **diminution de la vitesse avec l'âge** (la ligne bleu est ascendante). Ce constat est le plus notable pour le **7 km**, probablement du fait des qualités d'explosivité qui sont particulièrement mises à contribution sur les courtes distances. La tendance **diminue avec l'augmentation de la distance** (qui sollicite plus des qualités d'endurance).
+
+```{r race.age.pace.f, echo = F}
+(ggp <- plotAgePace("F", "Femmes"))
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/09-age-pace.f.png")
+}
+```
+
+Chez les **femmes**, l'allure est **relativement stable quelque soit l'âge**, et ce pour **toutes les courses**.
+
+*Notre analyse ne portant que sur 3 courses, les observations ne peuvent pas être généralisés*.
+
+## Conclusion
+
+Ces différentes analyses sont autant d'occasions pour le coureur de se situer par rapport aux autres concurrents, et pourquoi pas de se fixer de nouveaux objectifs.
+
+La prochaine édition de l'**Urban Trail de Rennes** aura lieu le **22 avril 2018**.
+
+Le code **R** utilisé pour la rédaction de cet article est disponible sur notre dépôt de sources [Github](https://github.com/DataBzh/territoire/tree/master/parrainages2017).
