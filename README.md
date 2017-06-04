@@ -2,7 +2,7 @@
 
 Here, you will find some codes used to create visualisations in the [Événement category](http://data-bzh.fr/category/dataviz/evenement) on Data Bzh.
 
-##NOTES 
+## NOTES 
 
 Many dataviz use the databzhtools you can find here : https://github.com/DataBzh/data-bzh-tools
 
