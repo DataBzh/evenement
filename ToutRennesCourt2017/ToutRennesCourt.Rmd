@@ -1,0 +1,270 @@
+---
+title: "Tout Rennes Court 2017"
+params:
+  publish: TRUE
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r Setup, echo = F}
+source("../DataBzhTools/main.R")
+load(file = "data/ToutRennesCourt.RData")
+
+sec2Date <- function(seconds)
+{
+  s <- seconds %% 60
+  minutes <- (seconds - s) / 60
+  m <- minutes %% 60
+  h <- floor(minutes / 60)
+
+  return(sprintf("%dh%02d", h, m))
+}
+```
+
+Le dimanche **8 octobre 2017** s'est déroulée la 35ème édition de [Tout Rennes Court](http://www.toutrennescourt.fr).
+
+L'évènement regroupait les adeptes de la course à pied autour de **`r length(levels(trc$Course))` épreuves** : **`r paste(levels(trc$Course), collapse = ", ")`**.
+
+Dans ce billet, nous allons nous intéresser aux résultats des différentes épreuves.
+
+## Données
+
+Le résultat des courses est disponible sur le site **[Klikego](https://www.klikego.com/resultats/tout-rennes-court-2017/1253705011503-1506946988179)**.
+
+Ceux-ci n'étant pas téléchargeables dans un format exploitable automatiquement, les données ont été récupérées à l'aide d'un outil prévu à cet effet : **[KlikegoScraper](https://github.com/michelcaradec/KlikegoScraper)**.
+
+## Analyse exploratoire
+
+**`r prettyNum(nrow(trc), big.mark = " ")`** participants (**`r prettyNum(nrow(trc[trc$Sexe == "M",]), big.mark = " ")`** hommes et **`r prettyNum(nrow(trc[trc$Sexe == "F",]), big.mark = " ")`** femmes) ont franchi la ligne d'arrivée (les "finishers").
+
+Regardons le détail par **épreuve**.
+
+```{r race.count, echo = F}
+tbl <- as.data.frame(table(trc$Course))
+names(tbl) <- c("race", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(race, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 8, colour = "grey50") +
+    xlab("Epreuve") +
+    ylab("Nombre") +
+    ggtitle("Tout Rennes Court 2017 - Nombre de finishers par épreuve") +
+    databzhTheme() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+))
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/01-race-count.png")
+}
+```
+
+C'est le **10 km CMB** qui a réuni le plus de participants, suivi du **S'mi Ouest France**.
+
+Poursuivons notre analyse avec la répartition par **sexe**.
+
+```{r race.sex.count, echo = F}
+tbl <- aggregate(Classement ~ Course + Sexe, trc, length)
+names(tbl) <- c("race", "sex", "count")
+
+cols <- c("F" = "red", "M" = "blue")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(race, count, fill = sex)) +
+    geom_bar(stat = "identity", alpha = .25, position = "dodge") +
+    geom_text(aes(label = prettyNum(count, " ")), size = 8, colour = "grey50", position = position_dodge(width = 0.9)) +
+    xlab("Epreuve") +
+    ylab("Nombre") +
+    scale_fill_manual("", values = cols) +
+    ggtitle("Tout Rennes Court 2017 - Nombre de finishers par sexe") +
+    databzhTheme() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+))
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/02-race-sex-count.png")
+}
+```
+
+Regardons maintenant la répartition par **catégorie**.
+
+```{r race.cat.count.1, echo = F}
+trc.1 <- trc[trc$Course %in% levels(trc$Course)[1:3], ]
+tbl <- aggregate(Classement ~ Course + Categorie, trc.1, length)
+names(tbl) <- c("race", "category", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(category, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 5, colour = "grey50", nudge_y = 0) +
+    xlab("Catégorie") +
+    ylab("Nombre") +
+    ggtitle("Tout Rennes Court 2017 - Nombre de finishers par catégorie") +
+    databzhTheme(),
+    type = "none"
+  ) +
+  facet_grid(race ~ .) +
+  theme(strip.text.y = element_text(size = 7))
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/03_01-race-cat-count.png")
+}
+```
+
+```{r race.cat.count.2, echo = F}
+trc.2 <- trc[trc$Course %in% levels(trc$Course)[4:5], ]
+tbl <- aggregate(Classement ~ Course + Categorie, trc.2, length)
+names(tbl) <- c("race", "category", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(category, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 5, colour = "grey50", nudge_y = 0) +
+    xlab("Catégorie") +
+    ylab("Nombre") +
+    ggtitle("Tout Rennes Court 2017 - Nombre de finishers par catégorie") +
+    databzhTheme(),
+    type = "none"
+  ) +
+  facet_grid(race ~ .) +
+  theme(strip.text.y = element_text(size = 7))
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/03_02-race-cat-count.png")
+}
+```
+
+```{r race.cat.count.3, echo = F}
+trc.3 <- trc[trc$Course %in% levels(trc$Course)[6:7], ]
+tbl <- aggregate(Classement ~ Course + Categorie, trc.3, length)
+names(tbl) <- c("race", "category", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(category, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 5, colour = "grey50", nudge_y = 0) +
+    xlab("Catégorie") +
+    ylab("Nombre") +
+    ggtitle("Tout Rennes Court 2017 - Nombre de finishers par catégorie") +
+    databzhTheme(),
+    type = "none"
+  ) +
+  facet_grid(race ~ .)
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/03_03-race-cat-count.png")
+}
+```
+
+```{r race.cat.count.4, echo = F}
+trc.4 <- trc[trc$Course %in% levels(trc$Course)[8:9], ]
+tbl <- aggregate(Classement ~ Course + Categorie, trc.4, length)
+names(tbl) <- c("race", "category", "count")
+
+(ggp <- databzhPlot(
+  ggplot(data = tbl, aes(category, count)) +
+    geom_bar(stat = "identity", fill = databzh$colour) +
+    geom_text(aes(label = prettyNum(count, " ")), size = 5, colour = "grey50", nudge_y = 0) +
+    xlab("Catégorie") +
+    ylab("Nombre") +
+    ggtitle("Tout Rennes Court 2017 - Nombre de finishers par catégorie") +
+    databzhTheme(),
+    type = "none"
+  ) +
+  facet_grid(race ~ .)
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/03_04-race-cat-count.png")
+}
+```
+
+Chaque catégorie représente une tranche d'âge, dont le découpage est détaillé sur cette fiche [Wikipedia](https://fr.wikipedia.org/wiki/Catégorie_(sports)#Cat.C3.A9gories_en_athl.C3.A9tisme). Précisons que les catégories **U20** et **U23** sont propres aux coureurs **élites**, et indiquent un limite d'âge (U20 pour **U**nder **20** ou moins de 20 ans, U23 pour **U**nder **23** ou moins de 23 ans).
+
+Voici quelques éléments statistiques supplémentaires pour chaque épreuve.
+
+```{r race.Summary, echo = F}
+trc.summary <-
+  t(
+    simplify2array(
+      lapply(
+        levels(trc$Course),
+        function(x) summary(trc[trc$Course == x,]$TempsSec)
+      )
+    )
+  )
+trc.summary <- as.data.frame(matrix(mapply(sec2Date, trc.summary), 9, 6))
+trc.summary$Course <- levels(trc$Course)
+names(trc.summary) <- c("Temps Min.", "q1", "Temps Médian", "Temps Moyen", "q3", "Temps Max.", "Course")
+
+(tbl <- trc.summary[, c(7, 1, 6, 4, 3)])
+
+if (params$publish) {
+  writeLines(
+    commonmark::markdown_html(
+      as.character(
+        knitr::kable(tbl)
+      ),
+      extensions = "table"
+    ),
+    "publish/04-race-summary.html"
+  )
+}
+```
+
+Regardons maintenant à l'aide d'[histogrammes](https://fr.wikipedia.org/wiki/Histogramme) la distribution du temps nécessaire à l'accomplissement de chaque épreuve.
+
+```{r race.hist, echo = F}
+temps.breaks <- seq(240, 10000, by = 300)
+
+(ggp <- databzhPlot(
+  ggplot(data = trc, aes(TempsSec)) +
+    geom_histogram(binwidth = 100, fill = databzh$colour) +
+    scale_x_continuous(breaks = temps.breaks, labels = sec2Date) +
+    xlab("Temps") +
+    ylab("Quantité") +
+    ggtitle("Tout Rennes Court 2017 - Distribution du temps par épreuve") +
+    databzhTheme(),
+    type = "none"
+  ) +
+  facet_grid(Course ~ .) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text.y = element_text(size = 7, angle = 0)
+  )
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/05-race-hist.png")
+}
+```
+
+Visualisons la même information sous forme de [boîtes à moustache](https://fr.wikipedia.org/wiki/Boîte_à_moustaches).
+
+```{r race.boxplot, echo = F}
+(ggp <- databzhPlot(
+  ggplot(data = trc, aes(Course, TempsSec)) +
+    geom_boxplot(fill = databzh$colour) +
+    scale_y_continuous(breaks = temps.breaks, labels = sec2Date) +
+    xlab("Epreuve") +
+    ylab("Temps") +
+    ggtitle("Tout Rennes Court 2017 - Distribution du temps par épreuve") +
+    databzhTheme() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  )
+)
+
+if (params$publish) {
+  databzhSavePlot(ggp, "publish/06-race-boxplot.png")
+}
+```
+
+## Conclusion
+
+Après avoir consulté ces quelques analyses, il ne vous reste plus qu'à chausser vos baskets et à vous préparer pour l'édition **2018** de **Tout Rennes Court**.
+
+Le code **R** utilisé pour la rédaction de cet article est disponible sur notre dépôt de sources [Github](https://github.com/DataBzh/evenement/tree/master/ToutRennesCourt2017).
